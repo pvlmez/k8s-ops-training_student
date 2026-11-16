@@ -1,0 +1,22 @@
+# Lab 7: an alert rule for the "chatty" Deployment.
+# A PrometheusRule is an ordinary Kubernetes object. The Prometheus Operator
+# finds it and loads it into Prometheus; nobody edits a Prometheus config file.
+# Apply with:  kubectl -n lab7 apply -f labs/files/lab-07/alert-rule.yaml
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: lab7
+spec:
+  groups:
+    - name: lab7
+      rules:
+        - alert: Lab7ReplicasMissing
+          # The condition: fewer than 2 pods of "chatty" are available.
+          expr: kube_deployment_status_replicas_available{namespace="lab7", deployment="chatty"} < 2
+          # It must stay true this long before the alert fires (until then: "pending").
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: "chatty has {{ $value }} of 2 replicas available"
+            description: "Deployment chatty in namespace lab7 has been short of replicas for more than a minute."

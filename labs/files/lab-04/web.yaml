@@ -1,0 +1,72 @@
+# Lab 4: a small web server. Apply with:  kubectl -n lab4 apply -f labs/files/lab-04/
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web-content
+data:
+  index.html: |
+    <h1>Web shop, content version 1</h1>
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  labels:
+    app: web
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: web
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1          # start at most 1 extra pod during a rollout
+      maxUnavailable: 0    # never go below 3 ready pods
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+        - name: nginx
+          image: docker.io/library/nginx:1.27-alpine
+          ports:
+            - name: http
+              containerPort: 80
+          readinessProbe:            # "may this pod receive traffic?"
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 5
+          livenessProbe:             # "must this container be restarted?"
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:                # what the scheduler reserves
+              cpu: 20m
+              memory: 32Mi
+            limits:                  # the hard ceiling
+              memory: 64Mi
+          volumeMounts:
+            - name: content
+              mountPath: /usr/share/nginx/html
+      volumes:
+        - name: content
+          configMap:
+            name: web-content
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+spec:
+  selector:
+    app: web
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

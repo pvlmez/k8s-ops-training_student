@@ -1,0 +1,5 @@
+# Strimzi Cluster Operator. Installed in the "kafka" namespace and watching
+# only that namespace.
+resources:
+  requests: { cpu: 100m, memory: 256Mi }
+  limits: { memory: 384Mi }

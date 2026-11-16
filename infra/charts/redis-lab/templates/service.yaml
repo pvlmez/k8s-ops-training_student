@@ -1,0 +1,52 @@
+# Client-facing Service: routes to the primary only (pod 0), because
+# replicas are read-only.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "redis-lab.fullname" . }}
+  labels:
+    {{- include "redis-lab.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    {{- include "redis-lab.selectorLabels" . | nindent 4 }}
+    statefulset.kubernetes.io/pod-name: {{ include "redis-lab.fullname" . }}-0
+  ports:
+    - name: redis
+      port: {{ .Values.service.port }}
+      targetPort: redis
+---
+# Headless Service: gives every pod a stable DNS name
+# (<release>-redis-lab-0.<release>-redis-lab-headless) used for replication.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "redis-lab.fullname" . }}-headless
+  labels:
+    {{- include "redis-lab.labels" . | nindent 4 }}
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    {{- include "redis-lab.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: redis
+{{- if .Values.metrics.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "redis-lab.fullname" . }}-metrics
+  labels:
+    {{- include "redis-lab.labels" . | nindent 4 }}
+    app.kubernetes.io/component: metrics
+spec:
+  selector:
+    {{- include "redis-lab.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: metrics
+      port: 9121
+      targetPort: metrics
+{{- end }}

@@ -1,0 +1,7 @@
+# Lab 6: values for a throw-away Redis in the namespace lab6.
+# Everything not listed here keeps the chart's default (infra/charts/redis-lab/values.yaml).
+fullnameOverride: scratch     # pods are called scratch-0, scratch-1 …
+replicas: 1
+metrics:
+  serviceMonitor:
+    enabled: false            # works on clusters without Prometheus too

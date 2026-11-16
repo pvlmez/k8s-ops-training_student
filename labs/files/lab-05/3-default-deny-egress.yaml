@@ -1,0 +1,10 @@
+# Selects every pod in the namespace and allows no outgoing traffic.
+# This also blocks DNS lookups, which is the point of the exercise.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-egress
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress

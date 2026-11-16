@@ -1,0 +1,16 @@
+# Lab 11: a topic, declared as a Kubernetes object. Strimzi's Topic Operator
+# sees it and creates the topic in Kafka.
+# Apply with:  kubectl apply -f labs/files/lab-11/topic-lab11.yaml
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaTopic
+metadata:
+  name: lab11
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: platform     # which Kafka cluster this topic belongs to
+spec:
+  partitions: 3                      # the topic is split into 3 logs
+  replicas: 3                        # every partition is stored on 3 brokers
+  config:
+    retention.ms: 3600000            # keep messages for 1 hour
+    min.insync.replicas: 2           # a write needs 2 of the 3 copies to succeed

@@ -1,0 +1,42 @@
+# Lab 14, fault 5 (stretch): a StatefulSet with a typo in its image tag.
+# fault.sh applies this file and then corrects the image, as the team did.
+apiVersion: v1
+kind: Service
+metadata:
+  name: ledger
+spec:
+  clusterIP: None
+  selector:
+    app: ledger
+  ports:
+    - name: http
+      port: 80
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ledger
+spec:
+  serviceName: ledger
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ledger
+  template:
+    metadata:
+      labels:
+        app: ledger
+    spec:
+      containers:
+        - name: ledger
+          image: docker.io/library/nginx:1.27-alpnie
+          ports:
+            - name: http
+              containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+          resources:
+            requests: { cpu: 10m, memory: 24Mi }
+            limits: { memory: 64Mi }

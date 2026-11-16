@@ -1,0 +1,4 @@
+# /etc/rancher/rke2/config.yaml — managed by Ansible (role rke2_agent)
+server: https://{{ rke2_api_host }}:9345
+token: {{ rke2_join_token | default(rke2_token) }}
+node-ip: {{ node_ip | default(ansible_host) }}

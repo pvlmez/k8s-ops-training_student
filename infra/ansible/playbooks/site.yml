@@ -1,0 +1,28 @@
+---
+# Full cluster build: prepare all nodes -> RKE2 server(s) -> agents -> kubeconfig.
+# Used by the instructor to pre-build or rebuild a cluster, and as the
+# catch-up path for an attendee who could not finish lab 2.
+#
+#   cd infra/ansible && ansible-playbook playbooks/site.yml
+
+- name: Check the inventory
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Check the inventory
+      ansible.builtin.import_tasks: tasks/require-inventory.yml
+
+- name: Prepare all nodes
+  hosts: cluster
+  gather_facts: true
+  roles:
+    - common
+
+- name: Install RKE2 servers
+  hosts: rke2_servers
+  gather_facts: true
+  roles:
+    - rke2_server
+
+- name: Join agents
+  ansible.builtin.import_playbook: join-agents.yml

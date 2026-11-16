@@ -1,0 +1,19 @@
+# Exposes the Hubble UI (deployed by the RKE2 Cilium chart) through Traefik.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hubble-ui
+  namespace: kube-system
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: hubble.${DOMAIN}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hubble-ui
+                port:
+                  number: 80

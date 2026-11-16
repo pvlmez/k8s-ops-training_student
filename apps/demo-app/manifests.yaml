@@ -1,0 +1,199 @@
+# Demo app for the capstone (lab 15): a small shop that uses every platform service.
+#
+#   web      takes orders from users who logged in through Keycloak; counts them in
+#            Redis; hands each order to Kafka (topic "orders")
+#   worker   reads the orders from Kafka and marks them processed in Redis
+#
+# Both get their secrets from Vault (role "demo-app"); no Kubernetes Secret is used.
+# The Python code is mounted from the ConfigMap demo-app-code, which deploy.sh
+# creates from apps/demo-app/app/. Kafka is reached through sidecar containers
+# that run Kafka's own console tools from the same image as the brokers.
+#
+# Rendered by infra/platform/deploy.sh app with envsubst:
+#   ${DOMAIN}       <node1-ip>.sslip.io
+#   ${KAFKA_IMAGE}  the image the brokers run
+#   ${CODE_SUM}     checksum of the code, so a code change restarts the pods
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: demo-app            # the identity the Vault role "demo-app" accepts
+  namespace: demo-app
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: demo-app
+  labels: { app.kubernetes.io/name: demo-app, app.kubernetes.io/component: web }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app.kubernetes.io/name: demo-app, app.kubernetes.io/component: web }
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: demo-app, app.kubernetes.io/component: web }
+      annotations:
+        checksum/code: "${CODE_SUM}"
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/role: "demo-app"
+        vault.hashicorp.com/agent-inject-secret-redis-password: "secret/data/platform/redis"
+        vault.hashicorp.com/agent-inject-template-redis-password: |
+          {{- with secret "secret/data/platform/redis" -}}{{ .Data.data.password }}{{- end -}}
+        vault.hashicorp.com/agent-inject-secret-config.json: "secret/data/demo-app/config"
+        vault.hashicorp.com/agent-inject-template-config.json: |
+          {{- with secret "secret/data/demo-app/config" -}}{{ .Data.data | toJSON }}{{- end -}}
+        # Look for a changed value every 15 seconds (the default is 5 minutes).
+        vault.hashicorp.com/template-static-secret-render-interval: "15s"
+    spec:
+      serviceAccountName: demo-app
+      securityContext:
+        runAsUser: 1001          # the user of the Kafka image; python does not need root
+        runAsNonRoot: true
+      containers:
+        - name: web
+          image: docker.io/library/python:3.13-alpine
+          command: ["python", "/app/web.py"]
+          env:
+            - { name: APP_URL, value: "http://demo.${DOMAIN}" }
+            - { name: KEYCLOAK_REALM_URL, value: "http://keycloak.${DOMAIN}/realms/platform" }
+            - { name: PYTHONUNBUFFERED, value: "1" }
+            - { name: PYTHONDONTWRITEBYTECODE, value: "1" }
+          ports:
+            - { name: http, containerPort: 8080 }
+          readinessProbe:
+            httpGet: { path: /readyz, port: http }     # fails while Redis cannot be reached
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 10m, memory: 32Mi }
+            limits: { memory: 96Mi }
+          volumeMounts:
+            - { name: code, mountPath: /app }
+            - { name: shared, mountPath: /shared }
+        - name: to-kafka       # follows the file the web container writes, sends each line to Kafka
+          image: ${KAFKA_IMAGE}
+          command:
+            - sh
+            - -c
+            - |
+              touch /shared/orders.log
+              tail -n 0 -F /shared/orders.log | bin/kafka-console-producer.sh \
+                --bootstrap-server platform-kafka-bootstrap.kafka.svc:9092 --topic orders
+          env:
+            - { name: KAFKA_HEAP_OPTS, value: "-Xmx64m" }
+          resources:
+            requests: { cpu: 10m, memory: 96Mi }
+            limits: { memory: 256Mi }
+          volumeMounts:
+            - { name: shared, mountPath: /shared }
+      volumes:
+        - name: code
+          configMap: { name: demo-app-code }
+        - name: shared
+          emptyDir: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: demo-app
+  labels: { app.kubernetes.io/name: demo-app, app.kubernetes.io/component: worker }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app.kubernetes.io/name: demo-app, app.kubernetes.io/component: worker }
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: demo-app, app.kubernetes.io/component: worker }
+      annotations:
+        checksum/code: "${CODE_SUM}"
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/role: "demo-app"
+        vault.hashicorp.com/agent-inject-secret-redis-password: "secret/data/platform/redis"
+        vault.hashicorp.com/agent-inject-template-redis-password: |
+          {{- with secret "secret/data/platform/redis" -}}{{ .Data.data.password }}{{- end -}}
+    spec:
+      serviceAccountName: demo-app
+      securityContext:
+        runAsUser: 1001
+        runAsNonRoot: true
+      containers:
+        - name: from-kafka     # consumer group "demo-app-worker": writes every order it receives to a file
+          image: ${KAFKA_IMAGE}
+          command:
+            - sh
+            - -c
+            - |
+              exec bin/kafka-console-consumer.sh \
+                --bootstrap-server platform-kafka-bootstrap.kafka.svc:9092 \
+                --topic orders --group demo-app-worker >> /shared/consumed.log
+          env:
+            - { name: KAFKA_HEAP_OPTS, value: "-Xmx64m" }
+          resources:
+            requests: { cpu: 10m, memory: 96Mi }
+            limits: { memory: 256Mi }
+          volumeMounts:
+            - { name: shared, mountPath: /shared }
+        - name: worker
+          image: docker.io/library/python:3.13-alpine
+          command: ["python", "/app/worker.py"]
+          env:
+            - { name: WORK_SECONDS, value: "0.2" }
+            - { name: PYTHONUNBUFFERED, value: "1" }
+            - { name: PYTHONDONTWRITEBYTECODE, value: "1" }
+          resources:
+            requests: { cpu: 10m, memory: 32Mi }
+            limits: { memory: 96Mi }
+          volumeMounts:
+            - { name: code, mountPath: /app }
+            - { name: shared, mountPath: /shared }
+      volumes:
+        - name: code
+          configMap: { name: demo-app-code }
+        - name: shared
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  namespace: demo-app
+  labels: { app.kubernetes.io/name: demo-app, app.kubernetes.io/component: web }
+spec:
+  selector: { app.kubernetes.io/name: demo-app, app.kubernetes.io/component: web }
+  ports:
+    - { name: http, port: 80, targetPort: http }
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: demo
+  namespace: demo-app
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: demo.${DOMAIN}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web
+                port: { number: 80 }
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: demo-app
+  namespace: demo-app
+spec:
+  selector:
+    matchLabels: { app.kubernetes.io/name: demo-app, app.kubernetes.io/component: web }
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s

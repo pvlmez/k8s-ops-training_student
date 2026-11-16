@@ -1,0 +1,9 @@
+---
+# Only restart a server that was already installed before this run; a fresh
+# install picks up the config on first start.
+- name: Restart rke2-server
+  ansible.builtin.systemd:
+    name: rke2-server
+    state: restarted
+  throttle: 1
+  when: rke2_bin.stat.exists

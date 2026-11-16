@@ -1,0 +1,8 @@
+build/
+.secrets/
+infra/ansible/inventory/hosts.ini
+*.retry
+*.bak
+.claude/settings.local.json
+CLAUDE.local.md
+__pycache__/

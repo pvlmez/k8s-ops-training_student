@@ -1,0 +1,10 @@
+apiVersion: v2
+name: redis-lab
+description: >-
+  Small, readable Redis chart for training. One primary plus optional
+  read replicas, using the official redis image. The password comes from a
+  Kubernetes Secret or from Vault through the Agent Injector.
+  No automatic failover; that is what Sentinel or an operator would add.
+type: application
+version: 0.1.0
+appVersion: "8"

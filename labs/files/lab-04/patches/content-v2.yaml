@@ -1,0 +1,8 @@
+# Lab 4B: new page content.  kubectl -n lab4 apply -f labs/files/lab-04/patches/content-v2.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web-content
+data:
+  index.html: |
+    <h1>Web shop, content version 2</h1>

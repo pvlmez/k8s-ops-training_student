@@ -1,0 +1,74 @@
+# HashiCorp Vault with integrated (Raft) storage.
+# One replica in the lab; production runs 3 or 5 with auto-unseal.
+# Rendered with envsubst: ${DOMAIN}.
+global:
+  enabled: true
+
+server:
+  ha:
+    enabled: true
+    replicas: 1            # raise to 3 to demo a Raft cluster (pods join via retry_join)
+    raft:
+      enabled: true
+      setNodeId: true
+      config: |
+        ui = true
+        listener "tcp" {
+          tls_disable     = 1          # LAB ONLY: TLS terminated nowhere
+          address         = "[::]:8200"
+          cluster_address = "[::]:8201"
+        }
+        storage "raft" {
+          path = "/vault/data"
+          retry_join {
+            leader_api_addr = "http://vault-0.vault-internal:8200"
+          }
+        }
+        service_registration "kubernetes" {}
+  dataStorage:
+    enabled: true
+    size: 1Gi
+    storageClass: local-path
+  auditStorage:
+    enabled: false
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { memory: 256Mi }
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    hosts:
+      - host: vault.${DOMAIN}
+        paths: []
+
+ui:
+  enabled: true
+
+# Agent Injector: mutating webhook that adds a vault-agent sidecar to pods
+# annotated with vault.hashicorp.com/agent-inject: "true".
+#
+# Two replicas plus a PodDisruptionBudget, so a node drain never removes the
+# only injector. The webhook's failurePolicy stays at the chart default
+# (Ignore): a pod created while no injector answers is admitted WITHOUT the
+# agent and never gets it later (lab 12 hit this: redis-0 came back with no
+# password). "Fail" would instead block every pod creation in the cluster,
+# the injector's own pods included, whenever the injector is down.
+# The chart's default anti-affinity puts the two replicas on different nodes;
+# its leader election makes only one of them manage the webhook certificate.
+injector:
+  enabled: true
+  replicas: 2
+  podDisruptionBudget:
+    maxUnavailable: 1
+  # Requests of the vault-agent container the injector adds to EVERY injected
+  # pod. The chart default (250m CPU) reserved ~1.5 vCPU for six idle agents
+  # on 2-vCPU lab nodes, so a pod tied to a full node by its local volume could
+  # not be scheduled. Only affects pods created after the change.
+  agentDefaults:
+    cpuRequest: "10m"
+    cpuLimit: "500m"
+    memRequest: "32Mi"
+    memLimit: "128Mi"
+  resources:
+    requests: { cpu: 10m, memory: 32Mi }
+    limits: { memory: 128Mi }

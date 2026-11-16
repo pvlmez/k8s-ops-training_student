@@ -1,0 +1,13 @@
+Redis "{{ include "redis-lab.fullname" . }}" installed in namespace {{ .Release.Namespace }}.
+
+Primary:  {{ include "redis-lab.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.service.port }}
+Pods:     kubectl -n {{ .Release.Namespace }} get pods -l app.kubernetes.io/instance={{ .Release.Name }}
+Password: {{- if .Values.vault.enabled }} from Vault ({{ .Values.vault.secretPath }}), rendered to /vault/secrets/redis-password
+          {{- else }} kubectl -n {{ .Release.Namespace }} get secret {{ include "redis-lab.secretName" . }} -o jsonpath='{.data.redis-password}' | base64 -d
+          {{- end }}
+
+Try it:
+  kubectl -n {{ .Release.Namespace }} exec -it {{ include "redis-lab.fullname" . }}-0 -c redis -- sh -c '. /scripts/password.sh; redis-cli'
+  > SET hello world
+  > GET hello
+  > INFO replication

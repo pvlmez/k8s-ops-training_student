@@ -1,0 +1,40 @@
+# Lab 14, fault 6 (stretch): the new "reports" service, as the team delivered it.
+# To repair it you may edit a copy of this file and apply that.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: reports-data
+spec:
+  storageClassName: fast-ssd
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 100Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reports
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: reports
+  template:
+    metadata:
+      labels:
+        app: reports
+    spec:
+      containers:
+        - name: reports
+          image: docker.io/library/nginx:1.27-alpine
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            requests: { cpu: 10m, memory: 24Mi }
+            limits: { memory: 64Mi }
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: reports-data

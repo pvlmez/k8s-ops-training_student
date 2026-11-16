@@ -1,0 +1,33 @@
+---
+# Runs on the first server; writes the kubeconfig to the workstation.
+- name: Read admin kubeconfig from the first server
+  ansible.builtin.slurp:
+    src: /etc/rancher/rke2/rke2.yaml
+  register: rke2_kubeconfig
+
+- name: Ensure ~/.kube exists on the workstation
+  ansible.builtin.file:
+    path: "{{ kubeconfig_local_path | dirname }}"
+    state: directory
+    mode: "0700"
+  delegate_to: localhost
+  become: false
+
+- name: Write kubeconfig on the workstation (API address and context renamed)
+  ansible.builtin.copy:
+    dest: "{{ kubeconfig_local_path }}"
+    mode: "0600"
+    backup: true
+    content: >-
+      {{ rke2_kubeconfig.content | b64decode
+         | replace('https://127.0.0.1:6443', 'https://' ~ rke2_api_host ~ ':6443')
+         | replace('name: default', 'name: ' ~ kubeconfig_context_name)
+         | replace('cluster: default', 'cluster: ' ~ kubeconfig_context_name)
+         | replace('user: default', 'user: ' ~ kubeconfig_context_name)
+         | replace('current-context: default', 'current-context: ' ~ kubeconfig_context_name) }}
+  delegate_to: localhost
+  become: false
+
+- name: Kubeconfig location
+  ansible.builtin.debug:
+    msg: "kubeconfig written to {{ kubeconfig_local_path }} — try: kubectl get nodes -o wide"

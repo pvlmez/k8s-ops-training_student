@@ -1,0 +1,12 @@
+# Lab 4B stretch: a memory limit far too small for nginx.
+#   kubectl -n lab4 patch deployment web --patch-file labs/files/lab-04/patches/tiny-memory.yaml
+spec:
+  template:
+    spec:
+      containers:
+        - name: nginx
+          resources:
+            requests:
+              memory: 6Mi
+            limits:
+              memory: 6Mi

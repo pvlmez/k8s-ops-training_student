@@ -1,0 +1,62 @@
+# Fluent Bit DaemonSet: tails container logs on every node, enriches them
+# with Kubernetes metadata and ships them to Loki. Also ships the RKE2
+# service journals (rke2-server / rke2-agent) so node problems are visible.
+
+serviceMonitor:
+  enabled: true
+
+resources:
+  requests: { cpu: 20m, memory: 32Mi }
+  limits: { memory: 128Mi }
+
+tolerations:
+  - operator: Exists          # run on every node, including tainted servers
+
+# Journal is persistent on Ubuntu (/var/log/journal) and /var/log is
+# already mounted by the chart.
+config:
+  inputs: |
+    [INPUT]
+        Name              tail
+        Tag               kube.*
+        Path              /var/log/containers/*.log
+        multiline.parser  cri
+        Mem_Buf_Limit     10MB
+        Skip_Long_Lines   On
+        DB                /var/log/flb_kube.db
+
+    [INPUT]
+        Name              systemd
+        Tag               host.*
+        Systemd_Filter    _SYSTEMD_UNIT=rke2-server.service
+        Systemd_Filter    _SYSTEMD_UNIT=rke2-agent.service
+        Systemd_Filter    _SYSTEMD_UNIT=containerd.service
+        Read_From_Tail    On
+        DB                /var/log/flb_journal.db
+
+  filters: |
+    [FILTER]
+        Name                kubernetes
+        Match               kube.*
+        Merge_Log           On
+        Keep_Log            Off
+        K8S-Logging.Parser  On
+        K8S-Logging.Exclude On
+
+  outputs: |
+    [OUTPUT]
+        Name                   loki
+        Match                  kube.*
+        Host                   loki.logging.svc.cluster.local
+        Port                   3100
+        labels                 job=fluent-bit, namespace=$kubernetes['namespace_name'], pod=$kubernetes['pod_name'], container=$kubernetes['container_name'], node=$kubernetes['host'], app=$kubernetes['labels']['app.kubernetes.io/name']
+        line_format            json
+        auto_kubernetes_labels off
+
+    [OUTPUT]
+        Name                   loki
+        Match                  host.*
+        Host                   loki.logging.svc.cluster.local
+        Port                   3100
+        labels                 job=systemd, unit=$_SYSTEMD_UNIT, node=$_HOSTNAME
+        line_format            key_value

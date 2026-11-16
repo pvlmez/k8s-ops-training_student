@@ -1,0 +1,104 @@
+# kube-prometheus-stack: Prometheus Operator, Prometheus, Alertmanager,
+# Grafana, node-exporter, kube-state-metrics.
+# Rendered with envsubst: ${DOMAIN} and ${INGRESS_IP}.
+
+prometheus:
+  prometheusSpec:
+    retention: 2d
+    retentionSize: 4GB
+    # Pick up ServiceMonitors/PodMonitors/rules from every namespace,
+    # not only those labelled with this Helm release.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    resources:
+      requests: { cpu: 200m, memory: 768Mi }
+      limits: { memory: 1536Mi }
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: local-path
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 5Gi
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    hosts: [prometheus.${DOMAIN}]
+
+alertmanager:
+  alertmanagerSpec:
+    resources:
+      requests: { cpu: 10m, memory: 32Mi }
+      limits: { memory: 128Mi }
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    hosts: [alertmanager.${DOMAIN}]
+
+grafana:
+  admin:
+    existingSecret: grafana-admin
+    userKey: admin-user
+    passwordKey: admin-password
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    hosts: [grafana.${DOMAIN}]
+  grafana.ini:
+    server:
+      root_url: http://grafana.${DOMAIN}
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { memory: 384Mi }
+  sidecar:
+    dashboards:
+      enabled: true
+      searchNamespace: ALL      # any ConfigMap labelled grafana_dashboard=1
+  additionalDataSources:
+    - name: Loki
+      uid: loki
+      type: loki
+      access: proxy
+      url: http://loki.logging.svc.cluster.local:3100
+      jsonData:
+        maxLines: 1000
+
+# RKE2 control plane runs as static pods on the server node(s).
+kubeEtcd:
+  enabled: true
+  endpoints: [${INGRESS_IP}]
+  service:
+    port: 2381
+    targetPort: 2381
+kubeControllerManager:
+  enabled: true
+  endpoints: [${INGRESS_IP}]
+  service:
+    port: 10257
+    targetPort: 10257
+  serviceMonitor:
+    https: true
+    insecureSkipVerify: true
+kubeScheduler:
+  enabled: true
+  endpoints: [${INGRESS_IP}]
+  service:
+    port: 10259
+    targetPort: 10259
+  serviceMonitor:
+    https: true
+    insecureSkipVerify: true
+kubeProxy:
+  enabled: false              # Cilium replaces kube-proxy
+
+kube-state-metrics:
+  resources:
+    requests: { cpu: 10m, memory: 64Mi }
+    limits: { memory: 192Mi }
+
+prometheus-node-exporter:
+  resources:
+    requests: { cpu: 10m, memory: 32Mi }
+    limits: { memory: 64Mi }

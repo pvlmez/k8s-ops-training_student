@@ -1,0 +1,47 @@
+# Lab 8: a web server that gets a secret from Vault as a file.
+# There is no Kubernetes Secret anywhere in this file. The annotations ask the
+# Vault Agent Injector to add a helper container that logs in to Vault and
+# writes the secret to /vault/secrets/web.txt.
+# Apply with:  kubectl -n lab8 apply -f labs/files/lab-08/web.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: web                 # the identity Vault checks: role "lab8" accepts web in lab8
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+      annotations:
+        vault.hashicorp.com/agent-inject: "true"            # yes, inject
+        vault.hashicorp.com/role: "lab8"                    # log in to Vault as this role
+        # Write the secret at this Vault path to the file /vault/secrets/web.txt ...
+        vault.hashicorp.com/agent-inject-secret-web.txt: "secret/data/lab8/web"
+        # ... in this format:
+        vault.hashicorp.com/agent-inject-template-web.txt: |
+          {{- with secret "secret/data/lab8/web" -}}
+          message={{ .Data.data.message }}
+          api_key={{ .Data.data.api_key }}
+          {{- end }}
+        # Look for a changed value every 15 seconds (the default is 5 minutes).
+        vault.hashicorp.com/template-static-secret-render-interval: "15s"
+    spec:
+      serviceAccountName: web
+      containers:
+        - name: web
+          image: docker.io/library/nginx:1.27-alpine
+          ports:
+            - name: http
+              containerPort: 80
+          resources:
+            requests: { cpu: 10m, memory: 24Mi }
+            limits: { memory: 64Mi }

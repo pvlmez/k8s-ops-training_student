@@ -1,0 +1,56 @@
+---
+# Lab 12: add a worker node.
+# 1. Move the new host from [spare] into [rke2_agents] in inventory/hosts.ini
+# 2. ansible-playbook playbooks/add-node.yml -e new_node=node4
+#
+# Existing agents are skipped (the playbook is limited to the new node), so
+# nothing running on them is restarted.
+
+- name: Validate input
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Check the inventory
+      ansible.builtin.import_tasks: tasks/require-inventory.yml
+
+    - name: Require new_node
+      ansible.builtin.assert:
+        that:
+          - new_node is defined
+          - new_node in groups['rke2_agents']
+        fail_msg: "Pass -e new_node=<name> and list that host under [rke2_agents] first."
+
+- name: Read the join token from the first server
+  hosts: "{{ groups['rke2_servers'][0] }}"
+  gather_facts: false
+  tasks:
+    - name: Read node-token
+      ansible.builtin.slurp:
+        src: /var/lib/rancher/rke2/server/node-token
+      register: node_token
+
+    - name: Share the token with the new node
+      ansible.builtin.set_fact:
+        rke2_join_token: "{{ node_token.content | b64decode | trim }}"
+      delegate_to: "{{ new_node }}"
+      delegate_facts: true
+
+- name: Prepare and join the new node
+  hosts: "{{ new_node }}"
+  gather_facts: true
+  roles:
+    - common
+    - rke2_agent
+
+- name: Refresh /etc/hosts on the existing nodes
+  hosts: cluster
+  gather_facts: false
+  tasks:
+    - name: All cluster nodes in /etc/hosts
+      ansible.builtin.blockinfile:
+        path: /etc/hosts
+        marker: "# {mark} RKE2 LAB NODES"
+        block: |
+          {% for h in groups['cluster'] %}
+          {{ hostvars[h]['node_ip'] | default(hostvars[h]['ansible_host']) }} {{ h }}
+          {% endfor %}

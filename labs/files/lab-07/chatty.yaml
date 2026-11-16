@@ -1,0 +1,38 @@
+# Lab 7: a small workload that writes a log line every two seconds.
+# Every fifth line reports a failure, so there is something to search for.
+# Apply with:  kubectl -n lab7 apply -f labs/files/lab-07/chatty.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chatty
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: chatty
+  template:
+    metadata:
+      labels:
+        app: chatty
+        app.kubernetes.io/name: chatty     # Fluent Bit turns this into the Loki label "app"
+    spec:
+      containers:
+        - name: chatty
+          image: docker.io/library/busybox:1.37
+          command:
+            - sh
+            - -c
+            - |
+              i=0
+              while true; do
+                i=$((i + 1))
+                if [ $((i % 5)) -eq 0 ]; then
+                  echo "order=$i status=failed reason=payment-timeout"
+                else
+                  echo "order=$i status=ok"
+                fi
+                sleep 2
+              done
+          resources:
+            requests: { cpu: 5m, memory: 8Mi }
+            limits: { memory: 32Mi }

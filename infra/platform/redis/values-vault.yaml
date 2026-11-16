@@ -1,0 +1,13 @@
+# redis-lab values for the platform: password from Vault (lab 10).
+# Service: redis.redis.svc:6379, pods redis-0 (primary), redis-1 (replica)
+fullnameOverride: redis
+replicas: 2               # primary + 1 replica, to show replication
+vault:
+  enabled: true
+  role: redis
+  secretPath: secret/data/platform/redis
+  secretKey: password
+persistence:
+  enabled: true
+  storageClass: local-path
+  size: 1Gi

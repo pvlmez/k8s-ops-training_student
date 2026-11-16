@@ -1,0 +1,46 @@
+---
+# ---------------------------------------------------------------------------
+# RKE2
+# ---------------------------------------------------------------------------
+# Channel or exact version. Keep in step with infra/versions.env.
+rke2_channel: "v1.35"
+rke2_version: "v1.35.10+rke2r1"            # e.g. "v1.35.8+rke2r1"; empty = latest in channel
+
+# Cluster join token: generated once on the workstation and kept in
+# credentials/rke2_token (git-ignored). Override to set your own.
+rke2_token: "{{ lookup('ansible.builtin.password', playbook_dir ~ '/../credentials/rke2_token', chars=['ascii_letters', 'digits'], length=48) }}"
+
+# First server is the one others join through.
+rke2_api_host: "{{ hostvars[groups['rke2_servers'][0]]['node_ip'] | default(hostvars[groups['rke2_servers'][0]]['ansible_host']) }}"
+
+rke2_cni: cilium
+rke2_ingress_controller: traefik     # ingress-nginx retired upstream in Mar 2026
+rke2_disable_kube_proxy: true        # Cilium replaces kube-proxy
+
+# Extra Subject Alternative Names on the API server certificate
+rke2_tls_san_extra: []
+
+# etcd snapshots (used in lab 13)
+rke2_etcd_snapshot_schedule: "0 */6 * * *"
+rke2_etcd_snapshot_retention: 10
+
+# ---------------------------------------------------------------------------
+# Node preparation
+# ---------------------------------------------------------------------------
+node_packages:
+  - curl
+  - jq
+  - vim
+  - htop
+  - tree
+  - bash-completion
+  - nfs-common
+  - open-iscsi        # harmless if unused; required if you swap in Longhorn
+node_firewall: disabled              # disabled | ufw
+node_timezone: "Etc/UTC"
+
+# ---------------------------------------------------------------------------
+# Workstation
+# ---------------------------------------------------------------------------
+kubeconfig_local_path: "~/.kube/config"
+kubeconfig_context_name: "lab"

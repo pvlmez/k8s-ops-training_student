@@ -1,0 +1,54 @@
+---
+# DESTRUCTIVE: removes RKE2 and all cluster data from every node.
+# Used between classes, or to restart an attendee from scratch.
+#
+#   ansible-playbook infra/ansible/playbooks/reset.yml -e confirm=yes   (from the repo root)
+#   ansible-playbook playbooks/reset.yml -e confirm=yes                 (from infra/ansible)
+
+- name: Confirm
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Check the inventory
+      ansible.builtin.import_tasks: tasks/require-inventory.yml
+
+    - name: Require explicit confirmation
+      ansible.builtin.assert:
+        that: confirm | default('no') == 'yes'
+        fail_msg: "This wipes the cluster. Re-run with -e confirm=yes"
+
+- name: Uninstall RKE2
+  hosts: cluster
+  gather_facts: false
+  # If any node fails, stop everything: the local join token must not be
+  # deleted while part of the old cluster is still running.
+  any_errors_fatal: true
+  tasks:
+    - name: Run the RKE2 uninstall script if present
+      ansible.builtin.command: /usr/local/bin/rke2-uninstall.sh
+      args:
+        removes: /usr/local/bin/rke2-uninstall.sh
+
+    - name: Remove leftover data directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/rancher
+        - /var/lib/rancher
+        - /var/lib/kubelet
+        - /opt/local-path-provisioner     # lab PV data
+        - /usr/local/sbin/install-rke2.sh
+
+    - name: Reboot to clear eBPF programs and network interfaces left by Cilium
+      ansible.builtin.reboot:
+        reboot_timeout: 600
+
+- name: Remove the local join token so the next build generates a new one
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Delete credentials/rke2_token
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/../credentials/rke2_token"
+        state: absent

@@ -1,0 +1,33 @@
+# /etc/rancher/rke2/config.yaml — managed by Ansible (role rke2_server)
+{% if inventory_hostname != groups['rke2_servers'][0] %}
+server: https://{{ rke2_api_host }}:9345
+{% endif %}
+token: {{ rke2_token }}
+node-ip: {{ node_ip | default(ansible_host) }}
+tls-san:
+  - {{ node_ip | default(ansible_host) }}
+  - {{ ansible_host }}
+  - {{ inventory_hostname }}
+{% for san in rke2_tls_san_extra %}
+  - {{ san }}
+{% endfor %}
+write-kubeconfig-mode: "0600"
+
+# Networking: Cilium as CNI, replacing kube-proxy (see HelmChartConfig in
+# /var/lib/rancher/rke2/server/manifests/rke2-cilium-config.yaml)
+cni: {{ rke2_cni }}
+{% if rke2_disable_kube_proxy %}
+disable-kube-proxy: true
+{% endif %}
+ingress-controller: {{ rke2_ingress_controller }}
+
+# etcd snapshots to /var/lib/rancher/rke2/server/db/snapshots
+etcd-snapshot-schedule-cron: "{{ rke2_etcd_snapshot_schedule }}"
+etcd-snapshot-retention: {{ rke2_etcd_snapshot_retention }}
+
+# Expose control-plane metrics to Prometheus (lab only: binds on all interfaces)
+etcd-expose-metrics: true
+kube-controller-manager-arg:
+  - bind-address=0.0.0.0
+kube-scheduler-arg:
+  - bind-address=0.0.0.0

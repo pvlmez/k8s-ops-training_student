@@ -1,0 +1,30 @@
+# Lab 8: the same request for the same secret, from a pod that is NOT allowed.
+# It asks for role "lab8" but runs as the service account "default", and the
+# role only accepts the service account "web". Vault refuses the login, so the
+# pod never gets past its init container.
+# Apply with:  kubectl -n lab8 apply -f labs/files/lab-08/intruder.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: intruder
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: intruder
+  template:
+    metadata:
+      labels:
+        app: intruder
+      annotations:
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/role: "lab8"
+        vault.hashicorp.com/agent-inject-secret-web.txt: "secret/data/lab8/web"
+    spec:
+      # no serviceAccountName: the pod runs as "default"
+      containers:
+        - name: intruder
+          image: docker.io/library/nginx:1.27-alpine
+          resources:
+            requests: { cpu: 10m, memory: 24Mi }
+            limits: { memory: 64Mi }

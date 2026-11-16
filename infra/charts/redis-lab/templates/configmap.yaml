@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "redis-lab.fullname" . }}
+  labels:
+    {{- include "redis-lab.labels" . | nindent 4 }}
+data:
+  redis.conf: |
+    {{- .Values.config | nindent 4 }}
+
+  # Finds the password (Vault file or env from Secret) and starts Redis.
+  # Pod 0 is the primary; any other pod starts as a replica of pod 0.
+  start.sh: |
+    #!/bin/sh
+    set -e
+    {{- if .Values.vault.enabled }}
+    # The Vault Agent Injector adds the password file when the pod is created.
+    # If the injector was down at that moment (e.g. evicted by a node drain), the
+    # pod was admitted without it. Refuse to start: otherwise Redis would run
+    # with NO password, and a restart of this same pod never adds the file.
+    if [ ! -s /vault/secrets/redis-password ]; then
+      echo "ERROR: /vault/secrets/redis-password is missing: this pod was created without the Vault agent." >&2
+      echo "       Check the injector (kubectl -n vault get pods), then delete this pod so it is recreated." >&2
+      exit 1
+    fi
+    {{- end }}
+    . /scripts/password.sh
+    ARGS="/etc/redis/redis.conf"
+    if [ -n "$REDISCLI_AUTH" ]; then
+      ARGS="$ARGS --requirepass $REDISCLI_AUTH --masterauth $REDISCLI_AUTH"
+    fi
+    case "$(hostname)" in
+      *-0) echo "Starting as PRIMARY" ;;
+      *)   echo "Starting as REPLICA of {{ include "redis-lab.fullname" . }}-0"
+           ARGS="$ARGS --replicaof {{ include "redis-lab.fullname" . }}-0.{{ include "redis-lab.fullname" . }}-headless 6379" ;;
+    esac
+    exec redis-server $ARGS
+
+  # Used by start.sh and the probes
+  password.sh: |
+    if [ -f /vault/secrets/redis-password ]; then
+      REDISCLI_AUTH="$(cat /vault/secrets/redis-password)"
+    elif [ -n "$REDIS_PASSWORD" ]; then
+      REDISCLI_AUTH="$REDIS_PASSWORD"
+    fi
+    export REDISCLI_AUTH
+
+  ping.sh: |
+    #!/bin/sh
+    . /scripts/password.sh
+    redis-cli -h 127.0.0.1 ping | grep -q PONG

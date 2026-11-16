@@ -1,0 +1,60 @@
+# -- Override the resource names (default: <release>-redis-lab)
+fullnameOverride: ""
+
+# -- Number of Redis pods. Pod 0 is the primary; the rest replicate from it.
+replicas: 1
+
+image:
+  repository: docker.io/library/redis
+  tag: 8-alpine
+  pullPolicy: IfNotPresent
+
+auth:
+  # -- Require a password. Where it comes from depends on the settings below.
+  enabled: true
+  # -- Used only when vault.enabled=false and existingSecret is empty.
+  #    Empty = a random password is generated on first install.
+  password: ""
+  # -- Use an existing Secret (key: redis-password) instead.
+  existingSecret: ""
+
+vault:
+  # -- Fetch the password from Vault with the Agent Injector instead of a Secret.
+  enabled: false
+  role: redis                              # Vault Kubernetes-auth role
+  secretPath: secret/data/platform/redis   # KV v2 path (note the /data/)
+  secretKey: password
+
+# Written to /etc/redis/redis.conf
+config: |
+  appendonly yes
+  appendfsync everysec
+  save 300 10
+  maxmemory 96mb
+  maxmemory-policy allkeys-lru
+  protected-mode no
+
+persistence:
+  enabled: true
+  storageClass: ""          # "" = cluster default
+  size: 1Gi
+
+resources:
+  requests: { cpu: 20m, memory: 64Mi }
+  limits: { memory: 128Mi }
+
+service:
+  type: ClusterIP
+  port: 6379
+
+metrics:
+  # -- redis_exporter sidecar on port 9121
+  enabled: true
+  image: docker.io/oliver006/redis_exporter:v1.82.0-alpine   # -alpine variant has a shell
+  serviceMonitor:
+    enabled: true           # needs the Prometheus Operator CRDs (kube-prometheus-stack)
+
+serviceAccount:
+  create: true
+  # -- Must match bound_service_account_names in the Vault role
+  name: redis

@@ -1,0 +1,22 @@
+# Stretch: a CiliumNetworkPolicy can look inside HTTP. The frontend may GET
+# from the backend, but nothing else (no POST, PUT, DELETE).
+# It replaces 2-allow-frontend.yaml: delete that policy first.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: frontend-get-only
+spec:
+  endpointSelector:
+    matchLabels:
+      app: backend
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            app: frontend
+      toPorts:
+        - ports:
+            - port: "80"
+              protocol: TCP
+          rules:
+            http:
+              - method: GET

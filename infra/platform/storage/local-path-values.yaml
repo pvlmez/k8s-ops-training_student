@@ -1,0 +1,17 @@
+# local-path-provisioner: creates hostPath-backed PVs on the node where the
+# pod is scheduled. LAB ONLY: the data lives on one node and is lost with it.
+storageClass:
+  create: true
+  name: local-path
+  defaultClass: true
+  reclaimPolicy: Delete
+nodePathMap:
+  - node: DEFAULT_PATH_FOR_NON_LISTED_NODES
+    paths:
+      - /opt/local-path-provisioner
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+  limits:
+    memory: 128Mi

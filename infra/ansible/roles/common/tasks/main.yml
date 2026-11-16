@@ -1,0 +1,95 @@
+---
+# Prepare an Ubuntu node for RKE2. Safe to re-run.
+
+- name: Wait for any unattended-upgrades apt lock to clear
+  ansible.builtin.shell: |
+    while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do sleep 5; done
+  changed_when: false
+
+- name: Install base packages
+  ansible.builtin.apt:
+    name: "{{ node_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Set timezone
+  community.general.timezone:
+    name: "{{ node_timezone }}"
+  failed_when: false   # optional; community.general may be missing on minimal installs
+
+- name: Disable swap now
+  ansible.builtin.command: swapoff -a
+  when: ansible_swaptotal_mb | int > 0
+  changed_when: true
+
+- name: Disable swap permanently
+  ansible.builtin.replace:
+    path: /etc/fstab
+    regexp: '^([^#].*\sswap\s.*)$'
+    replace: '# \1'
+
+- name: Load kernel modules needed by containerd/Cilium
+  community.general.modprobe:
+    name: "{{ item }}"
+    state: present
+    persistent: present
+  loop: [overlay, br_netfilter]
+  failed_when: false
+
+- name: Kernel settings for Kubernetes networking
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    sysctl_file: /etc/sysctl.d/90-kubernetes.conf
+    reload: true
+  loop:
+    - { key: net.ipv4.ip_forward, value: "1" }
+    - { key: net.bridge.bridge-nf-call-iptables, value: "1" }
+    - { key: fs.inotify.max_user_instances, value: "8192" }   # Fluent Bit / many pods
+    - { key: fs.inotify.max_user_watches, value: "524288" }
+
+- name: Firewall disabled (lab default)
+  community.general.ufw:
+    state: disabled
+  when: node_firewall == 'disabled'
+  failed_when: false
+
+- name: Firewall rules for RKE2 + Cilium (when ufw is kept on)
+  community.general.ufw:
+    rule: allow
+    port: "{{ item.port }}"
+    proto: "{{ item.proto | default('tcp') }}"
+  loop:
+    - { port: "22" }
+    - { port: "80" }
+    - { port: "443" }
+    - { port: "6443" }
+    - { port: "9345" }
+    - { port: "10250" }
+    - { port: "2379:2380" }
+    - { port: "4240" }
+    - { port: "4244" }
+    - { port: "8472", proto: udp }
+    - { port: "30000:32767" }
+  when: node_firewall == 'ufw'
+
+- name: All cluster nodes in /etc/hosts
+  ansible.builtin.blockinfile:
+    path: /etc/hosts
+    marker: "# {mark} RKE2 LAB NODES"
+    block: |
+      {% for h in groups['cluster'] %}
+      {{ hostvars[h]['node_ip'] | default(hostvars[h]['ansible_host']) }} {{ h }}
+      {% endfor %}
+
+- name: Shell environment for RKE2 tools (kubectl, crictl, ctr) on the node
+  ansible.builtin.copy:
+    dest: /etc/profile.d/rke2.sh
+    mode: "0644"
+    content: |
+      # Added by training playbook: RKE2 bundles kubectl/crictl/ctr here
+      export PATH=$PATH:/var/lib/rancher/rke2/bin
+      export CRI_CONFIG_FILE=/var/lib/rancher/rke2/agent/etc/crictl.yaml
+      export CONTAINERD_ADDRESS=/run/k3s/containerd/containerd.sock
+      if [ -r /etc/rancher/rke2/rke2.yaml ]; then export KUBECONFIG=/etc/rancher/rke2/rke2.yaml; fi

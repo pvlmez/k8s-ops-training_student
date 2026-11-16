@@ -1,0 +1,59 @@
+---
+# Join every host in [rke2_agents] to an existing server, then fetch the
+# kubeconfig. Works whether the server was installed by site.yml or by hand
+# (lab 2): the join token is read from the running server.
+#
+#   ansible-playbook playbooks/join-agents.yml
+
+- name: Check the inventory
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Check the inventory
+      ansible.builtin.import_tasks: tasks/require-inventory.yml
+
+- name: Read the join token from the first server
+  hosts: "{{ groups['rke2_servers'][0] }}"
+  gather_facts: false
+  tasks:
+    - name: Check the server is installed
+      ansible.builtin.stat:
+        path: /var/lib/rancher/rke2/server/node-token
+      register: token_file
+
+    - name: Stop if there is no running server yet
+      ansible.builtin.fail:
+        msg: >-
+          No /var/lib/rancher/rke2/server/node-token on {{ inventory_hostname }}.
+          Finish installing the RKE2 server first (lab 2, part A) or run site.yml.
+      when: not token_file.stat.exists
+
+    - name: Read node-token
+      ansible.builtin.slurp:
+        src: /var/lib/rancher/rke2/server/node-token
+      register: node_token
+
+    - name: Share the token with the agent hosts
+      ansible.builtin.set_fact:
+        rke2_join_token: "{{ node_token.content | b64decode | trim }}"
+      delegate_to: "{{ item }}"
+      delegate_facts: true
+      loop: "{{ groups['rke2_agents'] }}"
+
+- name: Prepare agent nodes
+  hosts: rke2_agents
+  gather_facts: true
+  roles:
+    - common
+
+- name: Install and join RKE2 agents
+  hosts: rke2_agents
+  gather_facts: false
+  roles:
+    - rke2_agent
+
+- name: Copy kubeconfig to the workstation
+  hosts: "{{ groups['rke2_servers'][0] }}"
+  gather_facts: false
+  roles:
+    - kubeconfig

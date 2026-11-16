@@ -1,0 +1,18 @@
+---
+# Stop early if Ansible loaded no inventory. Otherwise every play targeting
+# the cluster is silently skipped ("no hosts matched") and the run "succeeds"
+# without doing anything. Imported by each playbook's first play (on localhost).
+- name: Require an inventory with cluster nodes
+  ansible.builtin.assert:
+    that:
+      - groups['rke2_servers'] | default([]) | length > 0
+    fail_msg: >-
+      No hosts in [rke2_servers]: Ansible did not load your inventory.
+      Run from the repository root or from infra/ansible (both have an
+      ansible.cfg), or pass it explicitly: -i infra/ansible/inventory/hosts.ini.
+      Also check that inventory/hosts.ini exists (copy hosts.example.ini).
+    quiet: true
+
+- name: Show which nodes this run targets
+  ansible.builtin.debug:
+    msg: "Inventory: {{ inventory_dir | default('?') }} -> servers {{ groups['rke2_servers'] }}, agents {{ groups['rke2_agents'] | default([]) }}"
