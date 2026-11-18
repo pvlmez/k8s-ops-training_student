@@ -1,0 +1,8 @@
+flowchart LR
+  drain(["kubectl drain node2"]) -- "1 · cordon" --> node["node2<br/>unschedulable"]
+  drain -- "2 · Eviction<br/>for each pod" --> api["API server"]
+  api --> pdb{"PDB podinfo<br/>allowed<br/>disruptions > 0?"}
+  pdb -- "yes" --> ev["pod evicted<br/>Deployment replaces it<br/>on another node"]
+  pdb -- "no" --> wait["429 Too Many Requests<br/>drain waits and retries"]
+  classDef bad fill:#fff3e0,stroke:#b45309
+  class wait bad

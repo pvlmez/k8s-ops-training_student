@@ -1,0 +1,10 @@
+flowchart LR
+  pod["Pod podinfo<br/>token mounted"] -- "runs as" --> sa["ServiceAccount<br/>pod-reader"]
+  rb["RoleBinding<br/>pod-reader-reads-pods"] -- "subject" --> sa
+  rb -- "roleRef" --> role["Role read-pods<br/>get, list, watch<br/>pods, pods/log"]
+  pod -- "GET pods" --> api["API server"]
+  pod -- "GET secrets" --> api
+  api -- "200: allowed by the Role" --> ok["pod list"]
+  api -- "403: no rule allows it" --> no["forbidden"]
+  classDef bad fill:#fff3e0,stroke:#b45309
+  class no bad

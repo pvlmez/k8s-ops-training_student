@@ -1,0 +1,11 @@
+flowchart LR
+  job["Job batch<br/>completions 4 · parallelism 2"]
+  job --> a["pod 1 ✔"]
+  job --> b["pod 2 ✔"]
+  a -.-> c["pod 3 ✔"]
+  b -.-> d["pod 4 ✔"]
+  c --> done(["Complete<br/>4/4"])
+  d --> done
+  fail["Job failing<br/>backoffLimit 2"] --> f1["pod ✘"] --> f2["pod ✘"] --> f3["pod ✘"] --> failed(["Failed<br/>BackoffLimitExceeded"])
+  classDef bad fill:#fff3e0,stroke:#b45309
+  class f1,f2,f3,failed bad

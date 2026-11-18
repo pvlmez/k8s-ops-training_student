@@ -1,0 +1,12 @@
+flowchart LR
+  yaml["secret.yaml<br/>stringData: plain text"] -- "kubectl apply" --> etcd[("etcd<br/>data: base64")]
+  etcd --> kubelet["kubelet on the pod's node"]
+  subgraph pod["Pod podinfo"]
+    env["DB_USERNAME<br/>variable"]
+    files["/configs/username<br/>/configs/password<br/>tmpfs, in memory"]
+  end
+  kubelet --> env
+  kubelet --> files
+  reader(["anyone with<br/>get secrets"]) -. "base64 -d" .-> etcd
+  classDef secret fill:#fff3e0,stroke:#b45309
+  class etcd,reader secret

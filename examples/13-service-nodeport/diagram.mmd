@@ -1,0 +1,18 @@
+flowchart LR
+  c(["client"])
+  subgraph n1["node1"]
+    p1[":30898"]
+  end
+  subgraph n2["node2"]
+    p2[":30898"]
+    pod["podinfo pod"]
+  end
+  subgraph n3["node3"]
+    p3[":30898"]
+  end
+  c --> p1
+  c --> p2
+  c --> p3
+  p1 -- "forwarded" --> pod
+  p2 --> pod
+  p3 -- "forwarded" --> pod

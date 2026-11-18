@@ -1,0 +1,18 @@
+flowchart TB
+  ds["DaemonSet podinfo<br/>no replica count"]
+  subgraph n1["node1 · server"]
+    p1["podinfo"]
+  end
+  subgraph n2["node2 · agent"]
+    p2["podinfo"]
+  end
+  subgraph n3["node3 · agent"]
+    p3["podinfo"]
+  end
+  subgraph n4["new node"]
+    p4["podinfo<br/>added automatically"]
+  end
+  ds --> p1
+  ds --> p2
+  ds --> p3
+  ds -.-> p4

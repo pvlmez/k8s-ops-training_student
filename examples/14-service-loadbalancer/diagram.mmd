@@ -1,0 +1,10 @@
+flowchart LR
+  svc["Service podinfo<br/>type: LoadBalancer"]
+  svc --> cip["ClusterIP :80<br/>✔ works"]
+  svc --> np["node port :30899<br/>✔ works"]
+  svc -. "asks for an<br/>external IP" .-> who{"who answers?"}
+  who -- "cloud" --> cloud["cloud controller<br/>creates a load balancer"]
+  who -- "bare metal" --> bm["MetalLB, Cilium LB IPAM<br/>hand out an address"]
+  who -- "the lab" --> none["nobody:<br/>EXTERNAL-IP pending"]
+  classDef bad fill:#fff3e0,stroke:#b45309
+  class none bad

@@ -1,0 +1,62 @@
+# Example 08: stable names, stable DNS, one volume per pod.  kubectl apply -f examples/08-statefulset/statefulset.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ex-statefulset
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: podinfo               # headless: gives each pod a DNS name, podinfo-0.podinfo, podinfo-1.podinfo...
+  namespace: ex-statefulset
+spec:
+  clusterIP: None
+  selector:
+    app: podinfo
+  ports:
+    - name: http
+      port: 9898
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: podinfo
+  namespace: ex-statefulset
+spec:
+  serviceName: podinfo        # the headless Service above
+  replicas: 3
+  selector:
+    matchLabels:
+      app: podinfo
+  template:
+    metadata:
+      labels:
+        app: podinfo
+    spec:
+      containers:
+        - name: podinfo
+          image: ghcr.io/stefanprodan/podinfo:6.15.0
+          ports:
+            - name: http
+              containerPort: 9898
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 2
+          volumeMounts:
+            - name: data
+              mountPath: /data       # podinfo's POST /store writes files here
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {memory: 64Mi}
+  volumeClaimTemplates:        # one PVC per pod: data-podinfo-0, data-podinfo-1, data-podinfo-2
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 64Mi
+        # no storageClassName: the cluster's default class (local-path in the lab)

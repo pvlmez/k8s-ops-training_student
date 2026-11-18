@@ -1,0 +1,11 @@
+flowchart LR
+  env["ConfigMap podinfo-env<br/>PODINFO_UI_COLOR<br/>PODINFO_UI_MESSAGE"]
+  files["ConfigMap podinfo-files<br/>greeting.txt<br/>app.properties"]
+  subgraph pod["Pod podinfo"]
+    e["environment variables<br/>copied once, at start:<br/>needs a restart"]
+    f["files in /configs<br/>updated within a minute or two"]
+  end
+  env -- "envFrom" --> e
+  files -- "volume" --> f
+  edit(["kubectl patch"]) --> env
+  edit --> files

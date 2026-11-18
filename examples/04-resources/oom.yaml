@@ -1,0 +1,22 @@
+# Example 04, "Try this": a container that uses more memory than its limit.
+#   kubectl apply -f examples/04-resources/oom.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ex-resources
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: oom
+  namespace: ex-resources
+spec:
+  containers:
+    - name: podinfo
+      image: ghcr.io/stefanprodan/podinfo:6.15.0
+      env:
+        - name: PODINFO_STRESS_MEMORY   # podinfo loads 100 MB into memory at start...
+          value: "100"
+      resources:
+        requests: {cpu: 10m, memory: 32Mi}
+        limits: {memory: 64Mi}          # ...but may use only 64 MiB

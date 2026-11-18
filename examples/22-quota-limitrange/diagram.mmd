@@ -1,0 +1,8 @@
+flowchart LR
+  rs["ReplicaSet<br/>creates a pod"] --> lr["LimitRange defaults<br/>adds missing requests<br/>and limits; checks max"]
+  lr --> q{"ResourceQuota budget<br/>still room in<br/>the namespace?"}
+  q -- "yes" --> ok["pod created<br/>Used goes up"]
+  q -- "no" --> no["rejected:<br/>FailedCreate event<br/>on the ReplicaSet"]
+  lr -- "over max" --> no2["rejected:<br/>maximum memory<br/>per Container"]
+  classDef bad fill:#fff3e0,stroke:#b45309
+  class no,no2 bad

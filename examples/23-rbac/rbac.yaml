@@ -1,0 +1,50 @@
+# Example 23: a ServiceAccount that may read pods, and nothing else.
+#   kubectl apply -f examples/23-rbac/rbac.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ex-rbac
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pod-reader                # an identity for programs (people come from Keycloak or certificates)
+  namespace: ex-rbac
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role                        # WHAT may be done, in this namespace only
+metadata:
+  name: read-pods
+  namespace: ex-rbac
+rules:
+  - apiGroups: [""]               # "" = the core API group (pods, services, secrets...)
+    resources: ["pods", "pods/log"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding                 # WHO gets the Role
+metadata:
+  name: pod-reader-reads-pods
+  namespace: ex-rbac
+subjects:
+  - kind: ServiceAccount
+    name: pod-reader
+    namespace: ex-rbac
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: read-pods
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: podinfo
+  namespace: ex-rbac
+spec:
+  serviceAccountName: pod-reader  # the pod gets this identity: a token is mounted for it
+  containers:
+    - name: podinfo
+      image: ghcr.io/stefanprodan/podinfo:6.15.0
+      resources:
+        requests: {cpu: 10m, memory: 32Mi}
+        limits: {memory: 64Mi}

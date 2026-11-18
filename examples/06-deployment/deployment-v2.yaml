@@ -1,0 +1,61 @@
+# Example 06: the same Deployment, version 2 (green).  kubectl apply -f examples/06-deployment/deployment-v2.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ex-deployment
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: podinfo
+  namespace: ex-deployment
+  annotations:
+    kubernetes.io/change-cause: "v2: podinfo 6.15.0, green"   # shown by "kubectl rollout history"
+spec:
+  replicas: 3
+  minReadySeconds: 5         # a new pod counts as available only after 5 s ready: slows the rollout so you can watch it
+  selector:
+    matchLabels:
+      app: podinfo
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1            # at most 1 pod above 3 during a rollout
+      maxUnavailable: 0      # never fewer than 3 available pods
+  template:
+    metadata:
+      labels:
+        app: podinfo
+    spec:
+      containers:
+        - name: podinfo
+          image: ghcr.io/stefanprodan/podinfo:6.15.0
+          env:
+            - name: PODINFO_UI_COLOR
+              value: "#2e7d32"
+            - name: PODINFO_UI_MESSAGE
+              value: "version 2"
+          ports:
+            - name: http
+              containerPort: 9898
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 2
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {memory: 64Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: podinfo
+  namespace: ex-deployment
+spec:
+  selector:
+    app: podinfo
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

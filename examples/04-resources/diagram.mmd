@@ -1,0 +1,9 @@
+flowchart LR
+  req["requests<br/>cpu 10m · memory 32Mi"] -- "scheduler: is there<br/>unrequested room?" --> fit{"fits on<br/>a node?"}
+  fit -- "yes" --> run["Running"]
+  fit -- "no" --> pend["Pending<br/>Insufficient cpu"]
+  lim["limits<br/>memory 64Mi"] -- "kernel enforces<br/>while it runs" --> run
+  run -- "CPU over the limit" --> slow["throttled<br/>keeps running"]
+  run -- "memory over the limit" --> oom["OOMKilled<br/>restarted"]
+  classDef bad fill:#fff3e0,stroke:#b45309
+  class pend,oom bad

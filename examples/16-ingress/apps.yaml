@@ -1,0 +1,103 @@
+# Example 16: two apps, blue and green, behind one ingress controller.
+#   kubectl apply -f examples/16-ingress/apps.yaml
+# The Ingress itself needs your node1 address in the host names: the README creates it.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ex-ingress
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: blue
+  namespace: ex-ingress
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: blue
+  template:
+    metadata:
+      labels:
+        app: blue
+    spec:
+      containers:
+        - name: podinfo
+          image: ghcr.io/stefanprodan/podinfo:6.15.0
+          env:
+            - name: PODINFO_UI_COLOR
+              value: "#34577c"
+            - name: PODINFO_UI_MESSAGE
+              value: "this is blue"
+          ports:
+            - name: http
+              containerPort: 9898
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 2
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {memory: 64Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: blue
+  namespace: ex-ingress
+spec:
+  selector:
+    app: blue
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: green
+  namespace: ex-ingress
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: green
+  template:
+    metadata:
+      labels:
+        app: green
+    spec:
+      containers:
+        - name: podinfo
+          image: ghcr.io/stefanprodan/podinfo:6.15.0
+          env:
+            - name: PODINFO_UI_COLOR
+              value: "#2e7d32"
+            - name: PODINFO_UI_MESSAGE
+              value: "this is green"
+          ports:
+            - name: http
+              containerPort: 9898
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 2
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {memory: 64Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: green
+  namespace: ex-ingress
+spec:
+  selector:
+    app: green
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

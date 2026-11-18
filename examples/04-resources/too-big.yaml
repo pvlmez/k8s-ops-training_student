@@ -1,0 +1,19 @@
+# Example 04, "Try this": a pod that asks for more CPU than any node has.
+#   kubectl apply -f examples/04-resources/too-big.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ex-resources
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: too-big
+  namespace: ex-resources
+spec:
+  containers:
+    - name: podinfo
+      image: ghcr.io/stefanprodan/podinfo:6.15.0
+      resources:
+        requests: {cpu: "64", memory: 32Mi}   # 64 whole CPUs
+        limits: {memory: 64Mi}

@@ -1,0 +1,24 @@
+# Example 09, "Try this": a Job whose pods always fail.  kubectl apply -f examples/09-job/job-fail.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ex-job
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: failing
+  namespace: ex-job
+spec:
+  backoffLimit: 2             # 1 try + 2 retries, then the Job is Failed
+  template:
+    spec:
+      restartPolicy: Never
+      terminationGracePeriodSeconds: 2
+      containers:
+        - name: work
+          image: docker.io/library/busybox:1.37
+          command: ["sh", "-c", "echo 'cannot reach the backup target'; exit 1"]
+          resources:
+            requests: {cpu: 5m, memory: 8Mi}
+            limits: {memory: 16Mi}

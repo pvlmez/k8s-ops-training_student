@@ -1,0 +1,12 @@
+flowchart LR
+  you(["kubectl apply"]) --> api["API server<br/>stores the Pod"]
+  api --> sched["Scheduler<br/>picks a node"]
+  subgraph node["One node"]
+    kubelet["kubelet<br/>starts and restarts<br/>the container"]
+    subgraph pod["Pod podinfo · own IP"]
+      c["container podinfo<br/>port 9898"]
+    end
+    kubelet --> c
+  end
+  sched --> kubelet
+  del(["kubectl delete pod"]) -. "gone for good:<br/>no controller" .-> pod

@@ -1,0 +1,63 @@
+# Example 18: one ConfigMap read as environment variables, another mounted as files.
+#   kubectl apply -f examples/18-configmap/configmap.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ex-configmap
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: podinfo-env             # every key becomes an environment variable
+  namespace: ex-configmap
+data:
+  PODINFO_UI_COLOR: "#34577c"
+  PODINFO_UI_MESSAGE: "settings version 1"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: podinfo-files           # every key becomes a file
+  namespace: ex-configmap
+data:
+  greeting.txt: |
+    hello from version 1
+  app.properties: |
+    log.level=info
+    cache.size=100
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: podinfo
+  namespace: ex-configmap
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: podinfo
+  template:
+    metadata:
+      labels:
+        app: podinfo
+    spec:
+      containers:
+        - name: podinfo
+          image: ghcr.io/stefanprodan/podinfo:6.15.0
+          envFrom:
+            - configMapRef:
+                name: podinfo-env     # read once, when the container starts
+          env:
+            - name: PODINFO_CONFIG_PATH
+              value: /configs         # podinfo shows the files in this directory at /configs
+          volumeMounts:
+            - name: files
+              mountPath: /configs     # kept up to date by the kubelet while the pod runs
+              readOnly: true
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {memory: 64Mi}
+      volumes:
+        - name: files
+          configMap:
+            name: podinfo-files

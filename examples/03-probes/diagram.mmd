@@ -1,0 +1,16 @@
+flowchart LR
+  svc["Service podinfo"]
+  subgraph node["Node"]
+    kubelet["kubelet<br/>probes every 5 s"]
+    subgraph pod["Pod"]
+      ready["GET /readyz"]
+      live["GET /healthz"]
+    end
+  end
+  kubelet --> ready
+  kubelet --> live
+  ready -- "fails: ready=false" --> eps["EndpointSlice<br/>pod left out"]
+  eps -. "no traffic" .-> svc
+  live -- "fails 3 times" --> restart["container<br/>restarted"]
+  classDef bad fill:#fff3e0,stroke:#b45309
+  class eps,restart bad

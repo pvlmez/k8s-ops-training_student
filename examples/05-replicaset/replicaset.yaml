@@ -1,0 +1,28 @@
+# Example 05: a ReplicaSet keeps 3 pods running.  kubectl apply -f examples/05-replicaset/replicaset.yaml
+# You rarely create a ReplicaSet yourself: a Deployment creates them for you (example 06).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ex-replicaset
+---
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: podinfo
+  namespace: ex-replicaset
+spec:
+  replicas: 3
+  selector:                 # "the pods I own are the ones with this label"
+    matchLabels:
+      app: podinfo
+  template:                 # how to make a new one
+    metadata:
+      labels:
+        app: podinfo
+    spec:
+      containers:
+        - name: podinfo
+          image: ghcr.io/stefanprodan/podinfo:6.15.0
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {memory: 64Mi}

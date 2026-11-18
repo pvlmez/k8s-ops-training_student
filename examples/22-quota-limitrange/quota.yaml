@@ -1,0 +1,54 @@
+# Example 22: a namespace with a budget (ResourceQuota) and defaults (LimitRange).
+#   kubectl apply -f examples/22-quota-limitrange/quota.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ex-quota
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: defaults
+  namespace: ex-quota
+spec:
+  limits:
+    - type: Container
+      defaultRequest:           # added to a container that sets no requests
+        cpu: 20m
+        memory: 32Mi
+      default:                  # added to a container that sets no limits
+        memory: 64Mi
+      max:                      # no container in this namespace may ask for more
+        memory: 256Mi
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: budget
+  namespace: ex-quota
+spec:
+  hard:                         # totals for the whole namespace
+    pods: "4"
+    requests.cpu: 200m
+    requests.memory: 256Mi
+    limits.memory: 512Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: podinfo
+  namespace: ex-quota
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: podinfo
+  template:
+    metadata:
+      labels:
+        app: podinfo
+    spec:
+      containers:
+        - name: podinfo
+          image: ghcr.io/stefanprodan/podinfo:6.15.0
+          # no "resources:" at all: the LimitRange fills them in

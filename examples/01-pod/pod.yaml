@@ -1,0 +1,26 @@
+# Example 01: one pod, nothing else.  kubectl apply -f examples/01-pod/pod.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ex-pod
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: podinfo
+  namespace: ex-pod
+  labels:
+    app: podinfo
+spec:
+  containers:
+    - name: podinfo
+      image: ghcr.io/stefanprodan/podinfo:6.15.0
+      ports:
+        - name: http
+          containerPort: 9898
+      resources:
+        requests:
+          cpu: 10m
+          memory: 32Mi
+        limits:
+          memory: 64Mi

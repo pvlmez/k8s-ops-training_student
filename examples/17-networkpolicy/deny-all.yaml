@@ -1,0 +1,11 @@
+# Example 17, step 1: nothing may connect to any pod in this namespace.
+#   kubectl apply -f examples/17-networkpolicy/deny-all.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: ex-netpol
+spec:
+  podSelector: {}           # every pod in the namespace
+  policyTypes:
+    - Ingress               # incoming connections; with no "ingress:" rules, none are allowed

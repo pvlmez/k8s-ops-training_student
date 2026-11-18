@@ -1,0 +1,10 @@
+flowchart LR
+  cj["CronJob hello<br/>schedule: every minute"]
+  hand(["kubectl create job<br/>--from=cronjob/hello"])
+  cj -- "12:00" --> j1["Job hello-…00"] --> p1["pod"]
+  cj -- "12:01" --> j2["Job hello-…01"] --> p2["pod"]
+  cj -- "12:02" --> j3["Job hello-…02"] --> p3["pod"]
+  hand --> jh["Job hello-by-hand"] --> ph["pod"]
+  j0["older Jobs"]:::gone
+  cj -. "deleted beyond<br/>history limit 3" .-> j0
+  classDef gone fill:#f3f5f7,stroke:#b8c2cc,color:#5b6672

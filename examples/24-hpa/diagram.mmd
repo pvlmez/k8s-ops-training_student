@@ -1,0 +1,6 @@
+flowchart LR
+  kubelet["kubelets<br/>CPU use per pod"] --> ms["metrics-server"]
+  ms -- "every 15 s" --> hpa["HPA podinfo<br/>target 80% of request<br/>min 1 · max 4"]
+  hpa -- "sets spec.replicas" --> dep["Deployment podinfo"]
+  dep --> rs["ReplicaSet"] --> pods["pods<br/>request 50m · limit 200m"]
+  pods -. "use" .-> kubelet

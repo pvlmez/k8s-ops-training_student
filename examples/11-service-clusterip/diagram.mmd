@@ -1,0 +1,8 @@
+flowchart LR
+  client["client pod"] -- "1 · podinfo ?" --> dns["CoreDNS"]
+  dns -- "2 · ClusterIP" --> client
+  client -- "3 · ClusterIP:80" --> svc["Service podinfo<br/>ClusterIP · port 80<br/>selector app=podinfo"]
+  svc --> eps["EndpointSlice<br/>ready pod IPs, port 9898"]
+  eps --> p1["pod 1"]
+  eps --> p2["pod 2"]
+  eps --> p3["pod 3"]

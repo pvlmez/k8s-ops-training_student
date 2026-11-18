@@ -1,0 +1,64 @@
+# Example 11: a ClusterIP Service in front of 3 pods.  kubectl apply -f examples/11-service-clusterip/service.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ex-clusterip
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: podinfo
+  namespace: ex-clusterip
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: podinfo
+  template:
+    metadata:
+      labels:
+        app: podinfo
+    spec:
+      containers:
+        - name: podinfo
+          image: ghcr.io/stefanprodan/podinfo:6.15.0
+          ports:
+            - name: http
+              containerPort: 9898
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 2
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {memory: 64Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: podinfo
+  namespace: ex-clusterip
+spec:
+  type: ClusterIP          # the default: a virtual IP inside the cluster
+  selector:
+    app: podinfo
+  ports:
+    - name: http
+      port: 80               # the Service's port
+      targetPort: http       # the container's port (9898), by name
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: client              # a shell to test from: busybox has wget and nslookup
+  namespace: ex-clusterip
+spec:
+  terminationGracePeriodSeconds: 1
+  containers:
+    - name: busybox
+      image: docker.io/library/busybox:1.37
+      command: ["sleep", "infinity"]
+      resources:
+        requests: {cpu: 5m, memory: 8Mi}
+        limits: {memory: 16Mi}

@@ -1,0 +1,10 @@
+flowchart LR
+  rs["ReplicaSet podinfo<br/>replicas: 3<br/>selector: app=podinfo"]
+  loop{"pods with<br/>app=podinfo?"}
+  rs --> loop
+  loop -- "fewer than 3" --> create["create a pod<br/>from the template"]
+  loop -- "more than 3" --> delete["delete a pod"]
+  loop -- "exactly 3" --> ok["do nothing"]
+  create --> loop
+  delete --> loop
+  q["pod relabelled<br/>app=quarantine"] -. "no longer counted" .-> loop

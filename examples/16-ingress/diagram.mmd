@@ -1,0 +1,13 @@
+flowchart LR
+  b(["browser"]) -- "blue.‹ip›.sslip.io ?" --> dns["sslip.io DNS"]
+  dns -- "‹ip› = node1" --> b
+  b -- "GET /  Host: blue.‹ip›.sslip.io" --> t["Traefik<br/>node1 port 80"]
+  t -- "rule blue.‹ip›…" --> sb["Service blue"] --> pb["blue pods"]
+  t -- "rule green.‹ip›…" --> sg["Service green"] --> pg["green pods"]
+  t -- "no rule" --> nf["404"]
+  classDef blue fill:#e3f1f5,stroke:#34577c
+  classDef green fill:#e8f3e9,stroke:#2e7d32
+  classDef bad fill:#fff3e0,stroke:#b45309
+  class sb,pb blue
+  class sg,pg green
+  class nf bad

@@ -1,0 +1,55 @@
+# Example 03: readiness and liveness probes.  kubectl apply -f examples/03-probes/deployment.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ex-probes
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: podinfo
+  namespace: ex-probes
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: podinfo
+  template:
+    metadata:
+      labels:
+        app: podinfo
+    spec:
+      containers:
+        - name: podinfo
+          image: ghcr.io/stefanprodan/podinfo:6.15.0
+          ports:
+            - name: http
+              containerPort: 9898
+          readinessProbe:          # "may this pod receive traffic?"  No: taken out of the Service
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 5
+            failureThreshold: 1
+          livenessProbe:           # "is this container still alive?"  No: the kubelet restarts it
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {memory: 64Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: podinfo
+  namespace: ex-probes
+spec:
+  selector:
+    app: podinfo
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

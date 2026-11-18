@@ -1,0 +1,12 @@
+flowchart LR
+  dep["Deployment podinfo<br/>replicas 3 · maxSurge 1 · maxUnavailable 0"]
+  rs1["ReplicaSet v1 (blue)<br/>3 → 2 → 1 → 0<br/>kept for rollback"]
+  rs2["ReplicaSet v2 (green)<br/>0 → 1 → 2 → 3"]
+  dep --> rs1
+  dep --> rs2
+  rs1 --> p1["blue pods"]
+  rs2 --> p2["green pods"]
+  svc["Service podinfo<br/>app=podinfo"] --> p1
+  svc --> p2
+  classDef new fill:#e8f3e9,stroke:#2e7d32
+  class rs2,p2 new

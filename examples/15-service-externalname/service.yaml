@@ -1,0 +1,120 @@
+# Example 15: ExternalName Services, DNS aliases.  kubectl apply -f examples/15-service-externalname/service.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ex-externalname
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: old-db
+  namespace: ex-externalname
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: old-db
+  template:
+    metadata:
+      labels:
+        app: old-db
+    spec:
+      containers:
+        - name: podinfo
+          image: ghcr.io/stefanprodan/podinfo:6.15.0
+          env:
+            - name: PODINFO_UI_MESSAGE
+              value: "the old backend"
+          ports:
+            - name: http
+              containerPort: 9898
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {memory: 64Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: old-db
+  namespace: ex-externalname
+spec:
+  selector:
+    app: old-db
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: new-db
+  namespace: ex-externalname
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: new-db
+  template:
+    metadata:
+      labels:
+        app: new-db
+    spec:
+      containers:
+        - name: podinfo
+          image: ghcr.io/stefanprodan/podinfo:6.15.0
+          env:
+            - name: PODINFO_UI_MESSAGE
+              value: "the new backend"
+          ports:
+            - name: http
+              containerPort: 9898
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {memory: 64Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: new-db
+  namespace: ex-externalname
+spec:
+  selector:
+    app: new-db
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend                 # what the clients are configured to use
+  namespace: ex-externalname
+spec:
+  type: ExternalName            # no IP, no selector, no endpoints: only a DNS alias (CNAME)
+  externalName: old-db.ex-externalname.svc.cluster.local
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: docs                    # an alias for a name outside the cluster
+  namespace: ex-externalname
+spec:
+  type: ExternalName
+  externalName: kubernetes.io
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: client
+  namespace: ex-externalname
+spec:
+  terminationGracePeriodSeconds: 1
+  containers:
+    - name: busybox
+      image: docker.io/library/busybox:1.37
+      command: ["sleep", "infinity"]
+      resources:
+        requests: {cpu: 5m, memory: 8Mi}
+        limits: {memory: 16Mi}

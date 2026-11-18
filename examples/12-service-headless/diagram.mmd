@@ -1,0 +1,8 @@
+flowchart LR
+  client["client pod"]
+  client -- "nslookup podinfo" --> a["one answer:<br/>the ClusterIP"]
+  a --> svc["Service podinfo<br/>Cilium picks a pod"]
+  client -- "nslookup podinfo-headless" --> b["three answers:<br/>the pod IPs"]
+  b --> choose["client picks<br/>a pod itself"]
+  svc --> pods["pod 1 · pod 2 · pod 3"]
+  choose --> pods

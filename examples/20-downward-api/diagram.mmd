@@ -1,0 +1,9 @@
+flowchart LR
+  obj["the Pod object<br/>metadata.name · spec.nodeName<br/>status.podIP · limits<br/>labels · annotations"]
+  obj --> kubelet["kubelet"]
+  subgraph c["container podinfo"]
+    env["MY_POD_NAME, MY_NODE_NAME<br/>MY_POD_IP, MY_MEMORY_LIMIT<br/>fixed at start"]
+    files["/configs/labels<br/>/configs/annotations<br/>kept up to date"]
+  end
+  kubelet -- "fieldRef,<br/>resourceFieldRef" --> env
+  kubelet -- "downwardAPI volume" --> files

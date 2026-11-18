@@ -1,0 +1,12 @@
+flowchart LR
+  subgraph s["Deployment scratch"]
+    sp["pod"] --- ed[("emptyDir<br/>deleted with the pod")]
+  end
+  subgraph d["Deployment durable"]
+    dp["pod"]
+  end
+  dp -- "mounts" --> pvc["PVC durable-data<br/>64Mi · ReadWriteOnce"]
+  pvc -- "bound to" --> pv[("PV pvc-…<br/>a directory on one node")]
+  sc["StorageClass local-path<br/>(default)"] -. "provisioner<br/>created it" .-> pv
+  classDef bad fill:#fff3e0,stroke:#b45309
+  class ed bad

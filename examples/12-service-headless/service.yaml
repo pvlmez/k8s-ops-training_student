@@ -1,0 +1,78 @@
+# Example 12: a headless Service next to a normal one.  kubectl apply -f examples/12-service-headless/service.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ex-headless
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: podinfo
+  namespace: ex-headless
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: podinfo
+  template:
+    metadata:
+      labels:
+        app: podinfo
+    spec:
+      containers:
+        - name: podinfo
+          image: ghcr.io/stefanprodan/podinfo:6.15.0
+          ports:
+            - name: http
+              containerPort: 9898
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 2
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {memory: 64Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: podinfo
+  namespace: ex-headless
+spec:
+  type: ClusterIP          # normal: one virtual IP
+  selector:
+    app: podinfo
+  ports:
+    - name: http
+      port: 80               # the Service's port
+      targetPort: http       # the container's port (9898), by name
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: podinfo-headless
+  namespace: ex-headless
+spec:
+  clusterIP: None          # headless: no virtual IP, DNS returns the pod IPs
+  selector:
+    app: podinfo
+  ports:
+    - name: http
+      port: 9898             # no virtual IP means no port translation: clients use the pod's own port
+      targetPort: http
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: client              # a shell to test from: busybox has wget and nslookup
+  namespace: ex-headless
+spec:
+  terminationGracePeriodSeconds: 1
+  containers:
+    - name: busybox
+      image: docker.io/library/busybox:1.37
+      command: ["sleep", "infinity"]
+      resources:
+        requests: {cpu: 5m, memory: 8Mi}
+        limits: {memory: 16Mi}

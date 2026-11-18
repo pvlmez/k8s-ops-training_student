@@ -1,0 +1,31 @@
+# Example 10: a CronJob that starts a Job every minute.  kubectl apply -f examples/10-cronjob/cronjob.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ex-cronjob
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: hello
+  namespace: ex-cronjob
+spec:
+  schedule: "* * * * *"          # minute hour day-of-month month day-of-week: every minute
+  timeZone: "Etc/UTC"            # without it, the time zone of the controller manager
+  concurrencyPolicy: Forbid      # skip a run while the previous one is still busy
+  successfulJobsHistoryLimit: 3  # keep the last 3 successful Jobs (and their logs)
+  failedJobsHistoryLimit: 3
+  jobTemplate:                   # what each run creates: a Job (example 09)
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: Never
+          terminationGracePeriodSeconds: 2
+          containers:
+            - name: hello
+              image: docker.io/library/busybox:1.37
+              command: ["sh", "-c", "echo \"$(date -u +%T) UTC: nightly report written\""]
+              resources:
+                requests: {cpu: 5m, memory: 8Mi}
+                limits: {memory: 16Mi}

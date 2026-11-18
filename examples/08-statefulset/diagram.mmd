@@ -1,0 +1,12 @@
+flowchart LR
+  sts["StatefulSet podinfo<br/>replicas 3"]
+  hs["headless Service podinfo<br/>clusterIP: None"]
+  sts --> p0["podinfo-0"]
+  sts --> p1["podinfo-1"]
+  sts --> p2["podinfo-2"]
+  p0 --- v0[("PVC<br/>data-podinfo-0")]
+  p1 --- v1[("PVC<br/>data-podinfo-1")]
+  p2 --- v2[("PVC<br/>data-podinfo-2")]
+  hs -. "podinfo-0.podinfo" .-> p0
+  hs -. "podinfo-1.podinfo" .-> p1
+  hs -. "podinfo-2.podinfo" .-> p2

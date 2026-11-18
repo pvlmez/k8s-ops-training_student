@@ -1,0 +1,10 @@
+flowchart LR
+  fe["pod frontend<br/>role=frontend"]
+  in["pod intruder<br/>role=other"]
+  subgraph pol["podinfo pods · app=podinfo"]
+    pi["podinfo :9898"]
+  end
+  fe -- "✔ allowed by<br/>allow-frontend-to-podinfo" --> pi
+  in -. "✘ dropped:<br/>default-deny-ingress" .-> pi
+  classDef bad fill:#fff3e0,stroke:#b45309
+  class in bad

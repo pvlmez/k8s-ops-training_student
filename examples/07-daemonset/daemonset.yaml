@@ -1,0 +1,33 @@
+# Example 07: one podinfo pod on every node.  kubectl apply -f examples/07-daemonset/daemonset.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ex-daemonset
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: podinfo
+  namespace: ex-daemonset
+spec:
+  selector:
+    matchLabels:
+      app: podinfo
+  template:
+    metadata:
+      labels:
+        app: podinfo
+    spec:
+      containers:
+        - name: podinfo
+          image: ghcr.io/stefanprodan/podinfo:6.15.0
+          env:
+            - name: NODE_NAME              # filled in by Kubernetes (example 20)
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: PODINFO_UI_MESSAGE
+              value: "running on $(NODE_NAME)"
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {memory: 64Mi}

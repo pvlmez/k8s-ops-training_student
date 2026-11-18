@@ -1,0 +1,49 @@
+# Example 20: a pod that knows its own name, node, IP, limits and labels.
+#   kubectl apply -f examples/20-downward-api/pod.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ex-downward
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: podinfo
+  namespace: ex-downward
+  labels:
+    app: podinfo
+    tier: demo
+  annotations:
+    owner: platform-team
+spec:
+  containers:
+    - name: podinfo
+      image: ghcr.io/stefanprodan/podinfo:6.15.0
+      env:                                  # filled in by the kubelet when the container starts
+        - name: MY_POD_NAME
+          valueFrom: {fieldRef: {fieldPath: metadata.name}}
+        - name: MY_NAMESPACE
+          valueFrom: {fieldRef: {fieldPath: metadata.namespace}}
+        - name: MY_NODE_NAME
+          valueFrom: {fieldRef: {fieldPath: spec.nodeName}}
+        - name: MY_POD_IP
+          valueFrom: {fieldRef: {fieldPath: status.podIP}}
+        - name: MY_MEMORY_LIMIT             # in bytes
+          valueFrom: {resourceFieldRef: {containerName: podinfo, resource: limits.memory}}
+        - name: PODINFO_CONFIG_PATH
+          value: /configs
+      volumeMounts:
+        - name: podinfo-meta
+          mountPath: /configs               # files; kept up to date while the pod runs
+          readOnly: true
+      resources:
+        requests: {cpu: 10m, memory: 32Mi}
+        limits: {memory: 64Mi}
+  volumes:
+    - name: podinfo-meta
+      downwardAPI:
+        items:
+          - path: labels
+            fieldRef: {fieldPath: metadata.labels}
+          - path: annotations
+            fieldRef: {fieldPath: metadata.annotations}

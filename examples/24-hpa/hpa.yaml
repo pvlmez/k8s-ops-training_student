@@ -1,0 +1,55 @@
+# Example 24: a HorizontalPodAutoscaler that keeps CPU use near 80% of the request.
+#   kubectl apply -f examples/24-hpa/hpa.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ex-hpa
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: podinfo
+  namespace: ex-hpa
+spec:
+  # no "replicas:" here: the HPA owns the count (with it, every apply would reset it)
+  selector:
+    matchLabels:
+      app: podinfo
+  template:
+    metadata:
+      labels:
+        app: podinfo
+    spec:
+      containers:
+        - name: podinfo
+          image: ghcr.io/stefanprodan/podinfo:6.15.0
+          resources:
+            requests:
+              cpu: 50m                # the HPA measures use as a percentage of this
+              memory: 32Mi
+            limits:
+              cpu: 200m               # caps the load test below at 0.2 CPU per pod
+              memory: 64Mi
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: podinfo
+  namespace: ex-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: podinfo
+  minReplicas: 1
+  maxReplicas: 4
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 80      # of the CPU request, averaged over the pods
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 30  # ⚠️ demo setting so you see it scale down; the default is 300

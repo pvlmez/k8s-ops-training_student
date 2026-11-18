@@ -1,0 +1,27 @@
+# Example 09: a Job that runs 4 pieces of work, 2 at a time.  kubectl apply -f examples/09-job/job.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ex-job
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: batch
+  namespace: ex-job
+spec:
+  completions: 4              # done when 4 pods have succeeded
+  parallelism: 2              # at most 2 at a time
+  backoffLimit: 3             # give up after 3 failed pods
+  ttlSecondsAfterFinished: 3600   # delete the Job and its pods an hour after it finished
+  template:
+    spec:
+      restartPolicy: Never    # a Job's pods run to the end: Never or OnFailure, not Always
+      terminationGracePeriodSeconds: 2
+      containers:
+        - name: work
+          image: docker.io/library/busybox:1.37
+          command: ["sh", "-c", "echo \"$(date +%T) $(hostname): working\"; sleep 8; echo \"$(date +%T) $(hostname): done\""]
+          resources:
+            requests: {cpu: 5m, memory: 8Mi}
+            limits: {memory: 16Mi}

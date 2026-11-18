@@ -1,0 +1,62 @@
+# Example 02: an init container and a sidecar next to the app, sharing a volume and localhost.
+#   kubectl apply -f examples/02-multi-container/pod.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ex-multi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: podinfo
+  namespace: ex-multi
+  labels:
+    app: podinfo
+spec:
+  terminationGracePeriodSeconds: 2
+  volumes:
+    - name: shared              # an empty directory that lives as long as the pod
+      emptyDir: {}
+  initContainers:               # run one after the other, to completion, before the containers start
+    - name: prepare
+      image: docker.io/library/busybox:1.37
+      command: ["sh", "-c", "echo \"written by the init container at $(date +%T)\" > /shared/init.txt"]
+      volumeMounts:
+        - name: shared
+          mountPath: /shared
+      resources:
+        requests: {cpu: 5m, memory: 8Mi}
+        limits: {memory: 16Mi}
+  containers:
+    - name: podinfo             # the app
+      image: ghcr.io/stefanprodan/podinfo:6.15.0
+      env:
+        - name: PODINFO_CONFIG_PATH   # podinfo shows the files in this directory at /configs
+          value: /configs
+      ports:
+        - name: http
+          containerPort: 9898
+      volumeMounts:
+        - name: shared
+          mountPath: /configs
+          readOnly: true
+      resources:
+        requests: {cpu: 10m, memory: 32Mi}
+        limits: {memory: 64Mi}
+    - name: probe               # the sidecar: runs as long as the app does
+      image: docker.io/library/busybox:1.37
+      command:
+        - sh
+        - -c
+        - |
+          while true; do
+            echo "$(date +%T) podinfo says: $(wget -qO- http://localhost:9898/healthz)"
+            date +%T > /shared/sidecar.txt
+            sleep 5
+          done
+      volumeMounts:
+        - name: shared
+          mountPath: /shared
+      resources:
+        requests: {cpu: 5m, memory: 8Mi}
+        limits: {memory: 16Mi}

@@ -1,0 +1,6 @@
+flowchart LR
+  client["client pod<br/>uses http://backend"] -- "backend ?" --> dns["CoreDNS"]
+  dns -- "CNAME" --> alias["Service backend<br/>type: ExternalName<br/>no IP, no endpoints"]
+  alias -- "before the patch" --> old["Service old-db<br/>→ old backend pod"]
+  alias -. "after the patch" .-> new["Service new-db<br/>→ new backend pod"]
+  docs["Service docs<br/>type: ExternalName"] -- "CNAME" --> ext(["kubernetes.io<br/>outside the cluster"])

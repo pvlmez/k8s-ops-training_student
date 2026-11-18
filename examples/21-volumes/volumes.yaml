@@ -1,0 +1,79 @@
+# Example 21: the same app twice, once with an emptyDir and once with a PersistentVolumeClaim.
+#   kubectl apply -f examples/21-volumes/volumes.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ex-volumes
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: durable-data
+  namespace: ex-volumes
+spec:
+  accessModes: ["ReadWriteOnce"]   # one node at a time
+  resources:
+    requests:
+      storage: 64Mi
+  # no storageClassName: the cluster's default class (local-path in the lab)
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scratch
+  namespace: ex-volumes
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: scratch
+  template:
+    metadata:
+      labels:
+        app: scratch
+    spec:
+      containers:
+        - name: podinfo
+          image: ghcr.io/stefanprodan/podinfo:6.15.0
+          volumeMounts:
+            - name: data
+              mountPath: /data          # podinfo's POST /store writes files here
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {memory: 64Mi}
+      volumes:
+        - name: data
+          emptyDir: {}                  # created with the pod, deleted with the pod
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: durable
+  namespace: ex-volumes
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate                  # stop the old pod first: a ReadWriteOnce volume is mounted on one node at a time
+  selector:
+    matchLabels:
+      app: durable
+  template:
+    metadata:
+      labels:
+        app: durable
+    spec:
+      containers:
+        - name: podinfo
+          image: ghcr.io/stefanprodan/podinfo:6.15.0
+          volumeMounts:
+            - name: data
+              mountPath: /data          # podinfo's POST /store writes files here
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {memory: 64Mi}
+      volumes:
+        - name: data
+          persistentVolumeClaim:        # exists on its own, outlives every pod
+            claimName: durable-data

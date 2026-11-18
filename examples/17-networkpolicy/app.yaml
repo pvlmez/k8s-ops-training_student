@@ -1,0 +1,82 @@
+# Example 17: a server and two clients, before any policy.  kubectl apply -f examples/17-networkpolicy/app.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ex-netpol
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: podinfo
+  namespace: ex-netpol
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: podinfo
+  template:
+    metadata:
+      labels:
+        app: podinfo
+    spec:
+      containers:
+        - name: podinfo
+          image: ghcr.io/stefanprodan/podinfo:6.15.0
+          ports:
+            - name: http
+              containerPort: 9898
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 2
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {memory: 64Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: podinfo
+  namespace: ex-netpol
+spec:
+  selector:
+    app: podinfo
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: frontend
+  namespace: ex-netpol
+  labels:
+    role: frontend
+spec:
+  terminationGracePeriodSeconds: 1
+  containers:
+    - name: busybox
+      image: docker.io/library/busybox:1.37
+      command: ["sleep", "infinity"]
+      resources:
+        requests: {cpu: 5m, memory: 8Mi}
+        limits: {memory: 16Mi}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: intruder
+  namespace: ex-netpol
+  labels:
+    role: other
+spec:
+  terminationGracePeriodSeconds: 1
+  containers:
+    - name: busybox
+      image: docker.io/library/busybox:1.37
+      command: ["sleep", "infinity"]
+      resources:
+        requests: {cpu: 5m, memory: 8Mi}
+        limits: {memory: 16Mi}

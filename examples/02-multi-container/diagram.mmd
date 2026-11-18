@@ -1,0 +1,11 @@
+flowchart LR
+  subgraph pod["Pod podinfo · one IP, one localhost"]
+    init["init container prepare<br/>1 · runs first, then exits"]
+    app["container podinfo<br/>2 · the app, port 9898"]
+    side["container probe<br/>2 · the sidecar"]
+    vol[("emptyDir<br/>shared")]
+    init -- "writes init.txt" --> vol
+    side -- "writes sidecar.txt" --> vol
+    vol -- "read at /configs" --> app
+    side -- "localhost:9898" --> app
+  end

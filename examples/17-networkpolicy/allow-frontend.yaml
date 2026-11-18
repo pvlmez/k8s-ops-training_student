@@ -1,0 +1,21 @@
+# Example 17, step 2: the frontend (and only the frontend) may call podinfo on its http port.
+#   kubectl apply -f examples/17-networkpolicy/allow-frontend.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-frontend-to-podinfo
+  namespace: ex-netpol
+spec:
+  podSelector:              # the policy protects these pods...
+    matchLabels:
+      app: podinfo
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:                 # ...and lets in connections from these pods...
+        - podSelector:
+            matchLabels:
+              role: frontend
+      ports:                # ...on this port of the podinfo pods (not the Service's port 80)
+        - port: 9898
+          protocol: TCP
